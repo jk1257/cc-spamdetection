@@ -1,0 +1,154 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation Template",
+
+  "Resources" : {
+    "cchw3bucket55" : {
+      "Type" : "AWS::S3::Bucket",
+      "Properties" : {
+        "AccessControl" : "PublicReadWrite"
+      }
+    },
+    "BucketPolicy": {
+        "Type": "AWS::S3::BucketPolicy",
+        "Properties": {
+            "PolicyDocument": {
+                "Id": "PolicyNewBucket",
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "AllowSESPuts",
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "ses.amazonaws.com"
+                        },
+                        "Action": "s3:PutObject",
+                        "Resource": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "arn:aws:s3:::",
+                                    {
+                                        "Ref": "cchw3bucket55"
+                                    },
+                                    "/*"
+                                ]
+                            ]
+                        }
+                    }
+                ]
+            },
+            "Bucket": {
+                "Ref": "cchw3bucket55"
+            }
+        }
+    },
+    "ExecutionRoleLambda": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Path": "/",
+              "Policies": [
+                {
+                  "PolicyName": "LambPol",
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": "*",
+                        "Resource": "*"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+        },
+    "LF1cchw3": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+            "Handler": "index.handler",
+            "Role" : {
+                "Fn::GetAtt" : [
+                    "ExecutionRoleLambda", "Arn" 
+                ]
+            },
+            "Code": {
+                "ZipFile": "def my_handler(event, context):\n  message = \"Hello Lambda World!\"\n  return message\n"
+        },
+            "Runtime": "python3.8",
+            "Timeout": 25,
+            "TracingConfig": {
+                "Mode": "Active"
+            }
+        }
+    },
+    "BasicNotebookInstance": {
+        "Type": "AWS::SageMaker::NotebookInstance",
+        "Properties": {
+            "InstanceType": "ml.t2.medium",
+            "RoleArn": {
+                "Fn::GetAtt": [
+                    "ExecutionRole",
+                    "Arn"
+                ]
+            }
+        }
+    },
+    "ExecutionRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [
+                                "sagemaker.amazonaws.com"
+                            ]
+                        },
+                        "Action": [
+                            "sts:AssumeRole"
+                        ]
+                    }
+                ]
+            },
+            "Path": "/",
+            "ManagedPolicyArns": [
+                {
+                    "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/AmazonSageMakerFullAccess"
+                }
+            ]
+        }
+    }
+    },
+  "Outputs" : {
+    "S3Bucket1SecureURL" : {
+      "Value" : { "Fn::Join" : [ "", [ "https://", { "Fn::GetAtt" : [ "cchw3bucket55", "DomainName" ] } ] ] },
+      "Description" : "Name of S3 bucket"
+    },
+    "BasicNotebookInstanceId": {
+        "Value": {
+            "Ref": "BasicNotebookInstance"
+        }
+    }
+  }
+}
